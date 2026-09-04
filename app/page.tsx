@@ -20,13 +20,6 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 const roles = ['ENGINEER', 'BUILDER', 'AI EXPLORER', 'CREATOR'];
 
@@ -111,6 +104,8 @@ export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const osDragPoint = useRef({ x: 0, y: 0 });
+  const osCloseRef = useRef<HTMLButtonElement>(null);
+  const portalCloseRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRole((value) => (value + 1) % roles.length), 1800);
@@ -158,6 +153,27 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [gameActive]);
 
+  useEffect(() => {
+    if (!desktopOpen && portalProject === null) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = window.setTimeout(() => {
+      if (portalProject !== null) portalCloseRef.current?.focus();
+      else osCloseRef.current?.focus();
+    }, 30);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (portalProject !== null) setPortalProject(null);
+      else setDesktopOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [desktopOpen, portalProject]);
+
   function moveGlow(event: React.PointerEvent<HTMLElement>) {
     const bounds = heroRef.current?.getBoundingClientRect();
     if (!bounds) return;
@@ -177,18 +193,23 @@ export default function Home() {
 
   function playTone(frequency: number, duration = 0.07, force = false) {
     if (!soundOn && !force) return;
-    const context = audioRef.current ?? new AudioContext();
-    audioRef.current = context;
-    if (context.state === 'suspended') void context.resume();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(frequency, context.currentTime);
-    gain.gain.setValueAtTime(0.045, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
-    oscillator.connect(gain).connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + duration);
+    try {
+      if (typeof window === 'undefined' || !window.AudioContext) return;
+      const context = audioRef.current ?? new window.AudioContext();
+      audioRef.current = context;
+      if (context.state === 'suspended') void context.resume();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+      gain.gain.setValueAtTime(0.045, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + duration);
+    } catch {
+      // Sound is enhancement-only; never block the interaction.
+    }
   }
 
   function toggleSound() {
@@ -530,19 +551,24 @@ export default function Home() {
         </div>
       </section>
 
-      <Dialog open={desktopOpen} onOpenChange={setDesktopOpen}>
-        <DialogContent
-          className={`os-shell ${party ? 'os-alt' : ''}`}
-          showCloseButton={false}
+      {desktopOpen && (
+        <>
+          <div className="os-backdrop" aria-hidden="true" onClick={() => setDesktopOpen(false)} />
+          <section
+          className={`os-shell os-layer ${party ? 'os-alt' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="portfolio-os-title"
+          aria-describedby="portfolio-os-description"
           onPointerMove={moveOsWindow}
           onPointerUp={() => setOsDragging(false)}
         >
-          <DialogTitle className="sr-only">Shailesh portfolio desktop</DialogTitle>
-          <DialogDescription className="sr-only">Open project folders, drag windows, and launch cinematic project portals.</DialogDescription>
+          <h2 id="portfolio-os-title" className="sr-only">Shailesh portfolio desktop</h2>
+          <p id="portfolio-os-description" className="sr-only">Open project folders, drag windows, and launch cinematic project portals.</p>
           <div className="os-menubar">
             <div className="os-menu-brand"><span>SS</span><strong>PORTFOLIO OS</strong></div>
             <p>{party ? 'ALT TIMELINE CONNECTED' : 'CREATIVE SYSTEM ONLINE'}</p>
-            <DialogClose className="os-close" aria-label="Close portfolio desktop"><X size={18} /></DialogClose>
+            <button ref={osCloseRef} type="button" className="os-close" aria-label="Close portfolio desktop" onClick={() => setDesktopOpen(false)}><X size={18} /></button>
           </div>
           <div className="os-workspace">
             <div className="os-wallpaper" aria-hidden="true"><span>BUILD</span><span>PLAY</span><span>REPEAT</span></div>
@@ -596,17 +622,19 @@ export default function Home() {
               <time>2026 // ONLINE</time>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+          </section>
+        </>
+      )}
 
-      <Dialog open={portalProject !== null} onOpenChange={(open) => !open && setPortalProject(null)}>
-        {selectedProject && (
-          <DialogContent className={`project-portal project-portal-${selectedProject.color}`} showCloseButton={false}>
-            <DialogTitle className="sr-only">{selectedProject.name} project</DialogTitle>
-            <DialogDescription className="sr-only">Details and external link for {selectedProject.name}.</DialogDescription>
+      {selectedProject && (
+        <>
+          <div className="os-backdrop" aria-hidden="true" onClick={() => setPortalProject(null)} />
+          <section className={`project-portal project-layer project-portal-${selectedProject.color}`} role="dialog" aria-modal="true" aria-labelledby="project-portal-title" aria-describedby="project-portal-description">
+            <h2 id="project-portal-title" className="sr-only">{selectedProject.name} project</h2>
+            <p id="project-portal-description" className="sr-only">Details and external link for {selectedProject.name}.</p>
             <div className="portal-bar">
               <span>PROJECT PORTAL // {selectedProject.number}</span>
-              <DialogClose className="portal-close" aria-label="Close project portal"><X /></DialogClose>
+              <button ref={portalCloseRef} type="button" className="portal-close" aria-label="Close project portal" onClick={() => setPortalProject(null)}><X /></button>
             </div>
             <div className="portal-body">
               <div className={`portal-visual portal-visual-${selectedProject.art}`} aria-hidden="true">
@@ -622,9 +650,9 @@ export default function Home() {
               </div>
             </div>
             <div className="portal-foot"><span>SHAILESH SETHI // SELECTED WORK</span><span>ESC TO RETURN</span></div>
-          </DialogContent>
-        )}
-      </Dialog>
+          </section>
+        </>
+      )}
 
       <footer>
         <a className="brand" href="#top"><span className="brand-mark">SS</span><span>BACK TO TOP</span></a>
