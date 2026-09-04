@@ -13,6 +13,8 @@ import {
   RotateCcw,
   Sparkles,
   Trophy,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -77,16 +79,40 @@ const skills = ['AI', 'GAME DEV', 'PROMPT ENGINEERING', 'PYTHON', 'C', 'HTML', '
 export default function Home() {
   const [role, setRole] = useState(0);
   const [party, setParty] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+  const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
   const [gameActive, setGameActive] = useState(false);
   const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(0);
   const [time, setTime] = useState(15);
   const [target, setTarget] = useState({ x: 50, y: 50 });
+  const [bursts, setBursts] = useState<Array<{ id: number; x: number; y: number }>>([]);
+  const [dragging, setDragging] = useState<'code' | 'wow' | null>(null);
+  const [stickers, setStickers] = useState({ code: { x: 4, y: 31 }, wow: { x: 90, y: 70 } });
+  const rootRef = useRef<HTMLElement>(null);
   const heroRef = useRef<HTMLElement>(null);
+  const audioRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRole((value) => (value + 1) % roles.length), 1800);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setReady(true), 850);
+    const savedScore = Number(window.localStorage.getItem('spark-high-score') ?? 0);
+    setHighScore(savedScore);
+    const updateProgress = () => {
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      rootRef.current?.style.setProperty('--scroll-progress', `${total > 0 ? window.scrollY / total : 0}`);
+    };
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('scroll', updateProgress);
+    };
   }, []);
 
   useEffect(() => {
@@ -119,9 +145,58 @@ export default function Home() {
     if (!bounds) return;
     heroRef.current?.style.setProperty('--pointer-x', `${event.clientX - bounds.left}px`);
     heroRef.current?.style.setProperty('--pointer-y', `${event.clientY - bounds.top}px`);
+    if (dragging) {
+      const x = Math.min(94, Math.max(2, ((event.clientX - bounds.left) / bounds.width) * 100));
+      const y = Math.min(86, Math.max(8, ((event.clientY - bounds.top) / bounds.height) * 100));
+      setStickers((value) => ({ ...value, [dragging]: { x, y } }));
+    }
+  }
+
+  function moveCursor(event: React.PointerEvent<HTMLElement>) {
+    rootRef.current?.style.setProperty('--cursor-x', `${event.clientX}px`);
+    rootRef.current?.style.setProperty('--cursor-y', `${event.clientY}px`);
+  }
+
+  function playTone(frequency: number, duration = 0.07, force = false) {
+    if (!soundOn && !force) return;
+    const context = audioRef.current ?? new AudioContext();
+    audioRef.current = context;
+    if (context.state === 'suspended') void context.resume();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+    gain.gain.setValueAtTime(0.045, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + duration);
+  }
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    if (next) playTone(560, 0.1, true);
+  }
+
+  function tiltCard(event: React.PointerEvent<HTMLElement>) {
+    const card = event.currentTarget;
+    const bounds = card.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width;
+    const y = (event.clientY - bounds.top) / bounds.height;
+    card.style.setProperty('--tilt-x', `${(0.5 - y) * 8}deg`);
+    card.style.setProperty('--tilt-y', `${(x - 0.5) * 8}deg`);
+    card.style.setProperty('--glow-x', `${x * 100}%`);
+    card.style.setProperty('--glow-y', `${y * 100}%`);
+  }
+
+  function resetCard(event: React.PointerEvent<HTMLElement>) {
+    event.currentTarget.style.setProperty('--tilt-x', '0deg');
+    event.currentTarget.style.setProperty('--tilt-y', '0deg');
   }
 
   function startGame() {
+    playTone(360, 0.12);
     setScore(0);
     setTime(15);
     setTarget({ x: 50, y: 50 });
@@ -129,18 +204,42 @@ export default function Home() {
   }
 
   function catchSpark() {
-    setScore((value) => value + 1);
+    playTone(520 + score * 24, 0.08);
+    navigator.vibrate?.(18);
+    const burst = { id: Date.now(), x: target.x, y: target.y };
+    setBursts((items) => [...items, burst]);
+    window.setTimeout(() => setBursts((items) => items.filter((item) => item.id !== burst.id)), 620);
+    setScore((value) => {
+      const next = value + 1;
+      if (next > highScore) {
+        setHighScore(next);
+        window.localStorage.setItem('spark-high-score', String(next));
+      }
+      return next;
+    });
     setTarget({ x: 10 + Math.random() * 80, y: 12 + Math.random() * 72 });
   }
 
   async function copyEmail() {
     await navigator.clipboard.writeText('shaileshtunes@gmail.com');
+    playTone(720, 0.1);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
 
   return (
-    <main className={party ? 'site party-mode' : 'site'}>
+    <main
+      ref={rootRef}
+      className={`${party ? 'site party-mode' : 'site'} ${ready ? 'is-ready' : 'is-loading'}`}
+      onPointerMove={moveCursor}
+    >
+      <div className={ready ? 'loading-screen is-gone' : 'loading-screen'} aria-hidden="true">
+        <span className="loader-logo">SS</span>
+        <p>LOADING THE FUN STUFF</p>
+        <div><i /></div>
+      </div>
+      <div className="custom-cursor" aria-hidden="true"><i /></div>
+      <div className="scroll-progress" aria-hidden="true" />
       <a className="skip-link" href="#work">Skip to projects</a>
       <header className="topbar">
         <a className="brand" href="#top" aria-label="Shailesh Sethi, home">
@@ -153,9 +252,14 @@ export default function Home() {
           <a href="#play">PLAY</a>
           <a href="#contact">CONTACT</a>
         </nav>
-        <button className="party-button" type="button" onClick={() => setParty((value) => !value)} aria-pressed={party}>
-          <Sparkles aria-hidden="true" size={17} /> {party ? 'CALM IT DOWN' : 'PARTY MODE'}
-        </button>
+        <div className="nav-controls">
+          <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundOn ? 'Turn sound effects off' : 'Turn sound effects on'} aria-pressed={soundOn}>
+            {soundOn ? <Volume2 size={17} /> : <VolumeX size={17} />}
+          </button>
+          <button className="party-button" type="button" onClick={() => { setParty((value) => !value); playTone(240, .14); }} aria-pressed={party}>
+            <Sparkles aria-hidden="true" size={17} /> {party ? 'CALM IT DOWN' : 'PARTY MODE'}
+          </button>
+        </div>
       </header>
 
       <section id="top" className="hero" ref={heroRef} onPointerMove={moveGlow}>
@@ -172,13 +276,27 @@ export default function Home() {
 
         <div className="orbit orbit-one" aria-hidden="true"><span>✦</span></div>
         <div className="orbit orbit-two" aria-hidden="true"><span>☺</span></div>
-        <div className="sticker sticker-code" aria-hidden="true">&lt;/&gt;</div>
-        <div className="sticker sticker-wow" aria-hidden="true">WOW!</div>
+        <button
+          className={`sticker sticker-code ${dragging === 'code' ? 'is-dragging' : ''}`}
+          type="button"
+          aria-label="Drag the code sticker"
+          style={{ left: `${stickers.code.x}%`, top: `${stickers.code.y}%` }}
+          onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setDragging('code'); playTone(310); }}
+          onPointerUp={() => setDragging(null)}
+        >&lt;/&gt;</button>
+        <button
+          className={`sticker sticker-wow ${dragging === 'wow' ? 'is-dragging' : ''}`}
+          type="button"
+          aria-label="Drag the wow sticker"
+          style={{ left: `${stickers.wow.x}%`, top: `${stickers.wow.y}%` }}
+          onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setDragging('wow'); playTone(390); }}
+          onPointerUp={() => setDragging(null)}
+        >WOW!</button>
 
         <div className="hero-bottom">
           <p className="hero-intro">I&apos;m Shailesh—an <strong key={roles[role]}>{roles[role]}</strong> turning ambitious ideas into playful, high-performance digital experiences.</p>
           <a className="round-link" href="#work" aria-label="Jump to selected work"><ArrowDownRight size={34} /></a>
-          <div className="drag-note"><MousePointer2 size={18} /> MOVE AROUND<br />THE PLAYGROUND</div>
+          <div className="drag-note"><MousePointer2 size={18} /> DRAG THE STICKERS<br />MOVE THE LIGHT</div>
         </div>
 
         <div className="ticker" aria-hidden="true">
@@ -195,7 +313,13 @@ export default function Home() {
 
         <div className="project-grid">
           {projects.map((project, index) => (
-            <article className={`project-card project-${project.color} reveal`} key={project.name} style={{ '--delay': `${index * 90}ms` } as React.CSSProperties}>
+            <article
+              className={`project-card project-${project.color} reveal`}
+              key={project.name}
+              style={{ '--delay': `${index * 90}ms` } as React.CSSProperties}
+              onPointerMove={tiltCard}
+              onPointerLeave={resetCard}
+            >
               <div className={`project-art art-${project.art}`} aria-hidden="true">
                 <span className="project-number">{project.number}</span>
                 {project.art === 'radar' && <><i /><i /><i /><b /></>}
@@ -266,17 +390,24 @@ export default function Home() {
           </button>
         </div>
         <div className="game-card reveal">
-          <div className="game-hud"><span>SCORE <b>{String(score).padStart(2, '0')}</b></span><span>TIME <b>{String(time).padStart(2, '0')}</b></span></div>
+          <div className="game-hud"><span>SCORE <b>{String(score).padStart(2, '0')}</b></span><span>BEST <b>{String(highScore).padStart(2, '0')}</b></span><span>TIME <b>{String(time).padStart(2, '0')}</b></span></div>
           <div className="game-field">
             <div className="game-grid" aria-hidden="true" />
             {gameActive ? (
-              <button
-                className="spark-target"
-                type="button"
-                aria-label="Catch the spark"
-                onClick={catchSpark}
-                style={{ left: `${target.x}%`, top: `${target.y}%` }}
-              >✦</button>
+              <>
+                <button
+                  className="spark-target"
+                  type="button"
+                  aria-label="Catch the spark"
+                  onClick={catchSpark}
+                  style={{ left: `${target.x}%`, top: `${target.y}%` }}
+                >✦</button>
+                {bursts.map((burst) => (
+                  <span className="spark-burst" aria-hidden="true" key={burst.id} style={{ left: `${burst.x}%`, top: `${burst.y}%` }}>
+                    {Array.from({ length: 8 }).map((_, index) => <i key={index} style={{ '--ray': index } as React.CSSProperties} />)}
+                  </span>
+                ))}
+              </>
             ) : (
               <div className="game-message">
                 <span>{time === 0 ? (score > 9 ? 'SPARK MASTER!' : 'NICE CHASE!') : 'READY?'}</span>
