@@ -84,7 +84,6 @@ export default function Home() {
   const [party, setParty] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [ready, setReady] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(false);
   const [osProject, setOsProject] = useState<number | null>(0);
   const [osWindowPosition, setOsWindowPosition] = useState({ x: 0, y: 0 });
   const [osDragging, setOsDragging] = useState(false);
@@ -104,7 +103,6 @@ export default function Home() {
   const heroRef = useRef<HTMLElement>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const osDragPoint = useRef({ x: 0, y: 0 });
-  const osCloseRef = useRef<HTMLButtonElement>(null);
   const portalCloseRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -154,17 +152,15 @@ export default function Home() {
   }, [gameActive]);
 
   useEffect(() => {
-    if (!desktopOpen && portalProject === null) return;
+    if (portalProject === null) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const focusTimer = window.setTimeout(() => {
-      if (portalProject !== null) portalCloseRef.current?.focus();
-      else osCloseRef.current?.focus();
+      portalCloseRef.current?.focus();
     }, 30);
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (portalProject !== null) setPortalProject(null);
-      else setDesktopOpen(false);
+      setPortalProject(null);
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => {
@@ -172,7 +168,7 @@ export default function Home() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [desktopOpen, portalProject]);
+  }, [portalProject]);
 
   function moveGlow(event: React.PointerEvent<HTMLElement>) {
     const bounds = heroRef.current?.getBoundingClientRect();
@@ -240,15 +236,12 @@ export default function Home() {
   }
 
   function launchFromDesktop(index: number) {
-    setDesktopOpen(false);
-    window.setTimeout(() => launchProject(index), 260);
+    launchProject(index);
   }
 
   function openDesktop() {
-    setOsProject(0);
-    setOsWindowPosition({ x: 0, y: 0 });
-    setDesktopOpen(true);
     playTone(330, 0.16);
+    document.querySelector('#work')?.scrollIntoView({ behavior: 'smooth' });
   }
 
   function moveOsWindow(event: React.PointerEvent<HTMLElement>) {
@@ -260,22 +253,6 @@ export default function Home() {
       x: Math.max(-420, Math.min(420, position.x + dx)),
       y: Math.max(-220, Math.min(220, position.y + dy)),
     }));
-  }
-
-  function tiltCard(event: React.PointerEvent<HTMLElement>) {
-    const card = event.currentTarget;
-    const bounds = card.getBoundingClientRect();
-    const x = (event.clientX - bounds.left) / bounds.width;
-    const y = (event.clientY - bounds.top) / bounds.height;
-    card.style.setProperty('--tilt-x', `${(0.5 - y) * 8}deg`);
-    card.style.setProperty('--tilt-y', `${(x - 0.5) * 8}deg`);
-    card.style.setProperty('--glow-x', `${x * 100}%`);
-    card.style.setProperty('--glow-y', `${y * 100}%`);
-  }
-
-  function resetCard(event: React.PointerEvent<HTMLElement>) {
-    event.currentTarget.style.setProperty('--tilt-x', '0deg');
-    event.currentTarget.style.setProperty('--tilt-y', '0deg');
   }
 
   function startGame() {
@@ -415,33 +392,68 @@ export default function Home() {
           <p className="section-note">FOUR BUILDS / MANY LATE NIGHTS</p>
         </div>
 
-        <div className="project-grid">
-          {projects.map((project, index) => (
-            <article
-              className={`project-card project-${project.color} reveal`}
-              key={project.name}
-              style={{ '--delay': `${index * 90}ms` } as React.CSSProperties}
-              onPointerMove={tiltCard}
-              onPointerLeave={resetCard}
-            >
-              <div className={`project-art art-${project.art}`} aria-hidden="true">
-                <span className="project-number">{project.number}</span>
-                {project.art === 'radar' && <><i /><i /><i /><b /></>}
-                {project.art === 'portal' && <><i /><i /><i /></>}
-                {project.art === 'pixels' && Array.from({ length: 16 }).map((_, pixel) => <i key={pixel} />)}
-                {project.art === 'waves' && <><i /><i /><i /><i /></>}
-              </div>
-              <div className="project-copy">
-                <div className="project-kicker"><span>{project.type}</span><span>{project.result}</span></div>
-                <h3>{project.name}</h3>
-                <p>{project.summary}</p>
-                <div className="project-footer">
-                  <div>{project.tech.map((tech) => <span key={tech}>{tech}</span>)}</div>
-                  <button type="button" onClick={() => launchProject(index)} aria-label={`Enter ${project.name} portal`}><ArrowUpRight /></button>
+        <div
+          className={`os-shell inline-os reveal ${party ? 'os-alt' : ''}`}
+          onPointerMove={moveOsWindow}
+          onPointerUp={() => setOsDragging(false)}
+        >
+          <div className="os-menubar">
+            <div className="os-menu-brand"><span>SS</span><strong>PORTFOLIO OS</strong></div>
+            <p>{party ? 'ALT TIMELINE CONNECTED' : 'CREATIVE SYSTEM ONLINE'}</p>
+            <span className="os-live"><i /> LIVE DESKTOP</span>
+          </div>
+          <div className="os-workspace">
+            <div className="os-wallpaper" aria-hidden="true"><span>BUILD</span><span>PLAY</span><span>REPEAT</span></div>
+            <div className="os-icons" aria-label="Project folders">
+              {projects.map((project, index) => (
+                <button
+                  type="button"
+                  className={`os-icon os-icon-${project.color}`}
+                  key={project.name}
+                  onClick={() => { setOsProject(index); setOsWindowPosition({ x: 0, y: 0 }); playTone(410 + index * 40); }}
+                >
+                  <span><Folder /></span>
+                  <strong>{project.name}</strong>
+                </button>
+              ))}
+            </div>
+
+            {selectedOsProject && (
+              <article
+                className={`os-window os-window-${selectedOsProject.color}`}
+                style={{ left: `calc(50% + ${osWindowPosition.x}px)`, top: `calc(50% + ${osWindowPosition.y}px)` }}
+              >
+                <header
+                  onPointerDown={(event) => {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    osDragPoint.current = { x: event.clientX, y: event.clientY };
+                    setOsDragging(true);
+                  }}
+                  onPointerUp={() => setOsDragging(false)}
+                >
+                  <div><i /><i /><i /></div>
+                  <span>{selectedOsProject.name.toLowerCase().replaceAll(' ', '-')}.project</span>
+                  <button type="button" aria-label="Close project window" onClick={() => setOsProject(null)}><X size={15} /></button>
+                </header>
+                <div className="os-window-body">
+                  <div className={`os-preview art-${selectedOsProject.art}`} aria-hidden="true"><b>{selectedOsProject.number}</b></div>
+                  <div className="os-file-copy">
+                    <span>{selectedOsProject.type}</span>
+                    <h3>{selectedOsProject.name}</h3>
+                    <p>{selectedOsProject.summary}</p>
+                    <div>{selectedOsProject.tech.map((tech) => <i key={tech}>{tech}</i>)}</div>
+                    <button type="button" onClick={() => launchFromDesktop(osProject!)}>ENTER PROJECT PORTAL <ArrowUpRight /></button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            )}
+
+            <div className="os-taskbar">
+              <span><Monitor size={17} /> SS.OS</span>
+              <button type="button" onClick={() => document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })}>CONTACT.EXE</button>
+              <time>2026 // ONLINE</time>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -550,81 +562,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {desktopOpen && (
-        <>
-          <div className="os-backdrop" aria-hidden="true" onClick={() => setDesktopOpen(false)} />
-          <section
-          className={`os-shell os-layer ${party ? 'os-alt' : ''}`}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="portfolio-os-title"
-          aria-describedby="portfolio-os-description"
-          onPointerMove={moveOsWindow}
-          onPointerUp={() => setOsDragging(false)}
-        >
-          <h2 id="portfolio-os-title" className="sr-only">Shailesh portfolio desktop</h2>
-          <p id="portfolio-os-description" className="sr-only">Open project folders, drag windows, and launch cinematic project portals.</p>
-          <div className="os-menubar">
-            <div className="os-menu-brand"><span>SS</span><strong>PORTFOLIO OS</strong></div>
-            <p>{party ? 'ALT TIMELINE CONNECTED' : 'CREATIVE SYSTEM ONLINE'}</p>
-            <button ref={osCloseRef} type="button" className="os-close" aria-label="Close portfolio desktop" onClick={() => setDesktopOpen(false)}><X size={18} /></button>
-          </div>
-          <div className="os-workspace">
-            <div className="os-wallpaper" aria-hidden="true"><span>BUILD</span><span>PLAY</span><span>REPEAT</span></div>
-            <div className="os-icons" aria-label="Project folders">
-              {projects.map((project, index) => (
-                <button
-                  type="button"
-                  className={`os-icon os-icon-${project.color}`}
-                  key={project.name}
-                  onClick={() => { setOsProject(index); setOsWindowPosition({ x: 0, y: 0 }); playTone(410 + index * 40); }}
-                >
-                  <span><Folder /></span>
-                  <strong>{project.name}</strong>
-                </button>
-              ))}
-            </div>
-
-            {selectedOsProject && (
-              <article
-                className={`os-window os-window-${selectedOsProject.color}`}
-                style={{ left: `calc(50% + ${osWindowPosition.x}px)`, top: `calc(50% + ${osWindowPosition.y}px)` }}
-              >
-                <header
-                  onPointerDown={(event) => {
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                    osDragPoint.current = { x: event.clientX, y: event.clientY };
-                    setOsDragging(true);
-                  }}
-                  onPointerUp={() => setOsDragging(false)}
-                >
-                  <div><i /><i /><i /></div>
-                  <span>{selectedOsProject.name.toLowerCase().replaceAll(' ', '-')}.project</span>
-                  <button type="button" aria-label="Close project window" onClick={() => setOsProject(null)}><X size={15} /></button>
-                </header>
-                <div className="os-window-body">
-                  <div className={`os-preview art-${selectedOsProject.art}`} aria-hidden="true"><b>{selectedOsProject.number}</b></div>
-                  <div className="os-file-copy">
-                    <span>{selectedOsProject.type}</span>
-                    <h3>{selectedOsProject.name}</h3>
-                    <p>{selectedOsProject.summary}</p>
-                    <div>{selectedOsProject.tech.map((tech) => <i key={tech}>{tech}</i>)}</div>
-                    <button type="button" onClick={() => launchFromDesktop(osProject!)}>ENTER PROJECT PORTAL <ArrowUpRight /></button>
-                  </div>
-                </div>
-              </article>
-            )}
-
-            <div className="os-taskbar">
-              <span><Monitor size={17} /> SS.OS</span>
-              <button type="button" onClick={() => { setDesktopOpen(false); document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' }); }}>CONTACT.EXE</button>
-              <time>2026 // ONLINE</time>
-            </div>
-          </div>
-          </section>
-        </>
-      )}
 
       {selectedProject && (
         <>
