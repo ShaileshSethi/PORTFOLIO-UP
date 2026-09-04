@@ -7,7 +7,9 @@ import {
   Check,
   Code2,
   Copy,
+  Folder,
   Mail,
+  Monitor,
   MousePointer2,
   Play,
   RotateCcw,
@@ -15,8 +17,16 @@ import {
   Trophy,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const roles = ['ENGINEER', 'BUILDER', 'AI EXPLORER', 'CREATOR'];
 
@@ -81,6 +91,13 @@ export default function Home() {
   const [party, setParty] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [ready, setReady] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(false);
+  const [osProject, setOsProject] = useState<number | null>(0);
+  const [osWindowPosition, setOsWindowPosition] = useState({ x: 0, y: 0 });
+  const [osDragging, setOsDragging] = useState(false);
+  const [portalProject, setPortalProject] = useState<number | null>(null);
+  const [portalLaunch, setPortalLaunch] = useState<number | null>(null);
+  const [universeShift, setUniverseShift] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [gameActive, setGameActive] = useState(false);
   const [score, setScore] = useState(0);
@@ -93,6 +110,7 @@ export default function Home() {
   const rootRef = useRef<HTMLElement>(null);
   const heroRef = useRef<HTMLElement>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  const osDragPoint = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const timer = window.setInterval(() => setRole((value) => (value + 1) % roles.length), 1800);
@@ -179,6 +197,50 @@ export default function Home() {
     if (next) playTone(560, 0.1, true);
   }
 
+  function toggleParty() {
+    const next = !party;
+    setUniverseShift(next ? 'BREACHING THE MAIN TIMELINE' : 'RESTORING THE MAIN TIMELINE');
+    playTone(next ? 120 : 420, 0.35);
+    window.setTimeout(() => {
+      setParty(next);
+      playTone(next ? 620 : 240, 0.18);
+    }, 360);
+    window.setTimeout(() => setUniverseShift(null), 1250);
+  }
+
+  function launchProject(index: number) {
+    setPortalLaunch(index);
+    playTone(130 + index * 35, 0.42);
+    window.setTimeout(() => {
+      setPortalLaunch(null);
+      setPortalProject(index);
+      playTone(480 + index * 55, 0.16);
+    }, 820);
+  }
+
+  function launchFromDesktop(index: number) {
+    setDesktopOpen(false);
+    window.setTimeout(() => launchProject(index), 260);
+  }
+
+  function openDesktop() {
+    setOsProject(0);
+    setOsWindowPosition({ x: 0, y: 0 });
+    setDesktopOpen(true);
+    playTone(330, 0.16);
+  }
+
+  function moveOsWindow(event: React.PointerEvent<HTMLElement>) {
+    if (!osDragging) return;
+    const dx = event.clientX - osDragPoint.current.x;
+    const dy = event.clientY - osDragPoint.current.y;
+    osDragPoint.current = { x: event.clientX, y: event.clientY };
+    setOsWindowPosition((position) => ({
+      x: Math.max(-420, Math.min(420, position.x + dx)),
+      y: Math.max(-220, Math.min(220, position.y + dy)),
+    }));
+  }
+
   function tiltCard(event: React.PointerEvent<HTMLElement>) {
     const card = event.currentTarget;
     const bounds = card.getBoundingClientRect();
@@ -227,12 +289,30 @@ export default function Home() {
     window.setTimeout(() => setCopied(false), 1800);
   }
 
+  const selectedProject = portalProject === null ? null : projects[portalProject];
+  const selectedOsProject = osProject === null ? null : projects[osProject];
+
   return (
     <main
       ref={rootRef}
       className={`${party ? 'site party-mode' : 'site'} ${ready ? 'is-ready' : 'is-loading'}`}
       onPointerMove={moveCursor}
     >
+      {universeShift && (
+        <div className="universe-shift" aria-live="assertive">
+          <div className="shift-rings" aria-hidden="true"><i /><i /><i /><i /></div>
+          <p>{universeShift}</p>
+          <strong>REALITY.EXE</strong>
+          <span>DO NOT REFRESH THE TIMELINE</span>
+        </div>
+      )}
+      {portalLaunch !== null && (
+        <div className={`portal-launch portal-${projects[portalLaunch].color}`} aria-live="polite">
+          <div className="portal-tunnel" aria-hidden="true">{Array.from({ length: 7 }).map((_, index) => <i key={index} style={{ '--ring': index } as React.CSSProperties} />)}</div>
+          <p>ENTERING PROJECT {projects[portalLaunch].number}</p>
+          <strong>{projects[portalLaunch].name}</strong>
+        </div>
+      )}
       <div className={ready ? 'loading-screen is-gone' : 'loading-screen'} aria-hidden="true">
         <span className="loader-logo">SS</span>
         <p>LOADING THE FUN STUFF</p>
@@ -253,11 +333,14 @@ export default function Home() {
           <a href="#contact">CONTACT</a>
         </nav>
         <div className="nav-controls">
+          <button className="os-button" type="button" onClick={openDesktop}>
+            <Monitor size={17} /> <span>DESKTOP</span>
+          </button>
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundOn ? 'Turn sound effects off' : 'Turn sound effects on'} aria-pressed={soundOn}>
             {soundOn ? <Volume2 size={17} /> : <VolumeX size={17} />}
           </button>
-          <button className="party-button" type="button" onClick={() => { setParty((value) => !value); playTone(240, .14); }} aria-pressed={party}>
-            <Sparkles aria-hidden="true" size={17} /> {party ? 'CALM IT DOWN' : 'PARTY MODE'}
+          <button className="party-button" type="button" onClick={toggleParty} aria-pressed={party}>
+            <Sparkles aria-hidden="true" size={17} /> {party ? 'EXIT UNIVERSE' : 'PARTY MODE'}
           </button>
         </div>
       </header>
@@ -265,13 +348,13 @@ export default function Home() {
       <section id="top" className="hero" ref={heroRef} onPointerMove={moveGlow}>
         <div className="pointer-glow" aria-hidden="true" />
         <div className="hero-meta">
-          <p><span className="status-dot" /> AVAILABLE FOR MISCHIEF</p>
-          <p>BASED IN INDIA <span>↗</span></p>
+          <p><span className="status-dot" /> {party ? 'SYSTEM OVERRIDE ACTIVE' : 'AVAILABLE FOR MISCHIEF'}</p>
+          <p>{party ? 'TIMELINE // 404' : 'BASED IN INDIA'} <span>↗</span></p>
         </div>
 
-        <h1 className="hero-title" aria-label="Ideas into digital reality">
-          <span>IDEAS INTO</span>
-          <span className="reality-line">DIGITAL <i>REALITY</i></span>
+        <h1 className="hero-title" aria-label={party ? 'Alternate universe unlocked' : 'Ideas into digital reality'}>
+          <span key={party ? 'accessing' : 'ideas'}>{party ? 'ACCESSING' : 'IDEAS INTO'}</span>
+          <span className="reality-line" key={party ? 'alternate' : 'digital'}>{party ? 'ALT' : 'DIGITAL'} <i>{party ? 'UNIVERSE' : 'REALITY'}</i></span>
         </h1>
 
         <div className="orbit orbit-one" aria-hidden="true"><span>✦</span></div>
@@ -333,7 +416,7 @@ export default function Home() {
                 <p>{project.summary}</p>
                 <div className="project-footer">
                   <div>{project.tech.map((tech) => <span key={tech}>{tech}</span>)}</div>
-                  <a href={project.link} target="_blank" rel="noreferrer" aria-label={`Open ${project.name}`}><ArrowUpRight /></a>
+                  <button type="button" onClick={() => launchProject(index)} aria-label={`Enter ${project.name} portal`}><ArrowUpRight /></button>
                 </div>
               </div>
             </article>
@@ -446,6 +529,102 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <Dialog open={desktopOpen} onOpenChange={setDesktopOpen}>
+        <DialogContent
+          className={`os-shell ${party ? 'os-alt' : ''}`}
+          showCloseButton={false}
+          onPointerMove={moveOsWindow}
+          onPointerUp={() => setOsDragging(false)}
+        >
+          <DialogTitle className="sr-only">Shailesh portfolio desktop</DialogTitle>
+          <DialogDescription className="sr-only">Open project folders, drag windows, and launch cinematic project portals.</DialogDescription>
+          <div className="os-menubar">
+            <div className="os-menu-brand"><span>SS</span><strong>PORTFOLIO OS</strong></div>
+            <p>{party ? 'ALT TIMELINE CONNECTED' : 'CREATIVE SYSTEM ONLINE'}</p>
+            <DialogClose className="os-close" aria-label="Close portfolio desktop"><X size={18} /></DialogClose>
+          </div>
+          <div className="os-workspace">
+            <div className="os-wallpaper" aria-hidden="true"><span>BUILD</span><span>PLAY</span><span>REPEAT</span></div>
+            <div className="os-icons" aria-label="Project folders">
+              {projects.map((project, index) => (
+                <button
+                  type="button"
+                  className={`os-icon os-icon-${project.color}`}
+                  key={project.name}
+                  onClick={() => { setOsProject(index); setOsWindowPosition({ x: 0, y: 0 }); playTone(410 + index * 40); }}
+                >
+                  <span><Folder /></span>
+                  <strong>{project.name}</strong>
+                </button>
+              ))}
+            </div>
+
+            {selectedOsProject && (
+              <article
+                className={`os-window os-window-${selectedOsProject.color}`}
+                style={{ left: `calc(50% + ${osWindowPosition.x}px)`, top: `calc(50% + ${osWindowPosition.y}px)` }}
+              >
+                <header
+                  onPointerDown={(event) => {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    osDragPoint.current = { x: event.clientX, y: event.clientY };
+                    setOsDragging(true);
+                  }}
+                  onPointerUp={() => setOsDragging(false)}
+                >
+                  <div><i /><i /><i /></div>
+                  <span>{selectedOsProject.name.toLowerCase().replaceAll(' ', '-')}.project</span>
+                  <button type="button" aria-label="Close project window" onClick={() => setOsProject(null)}><X size={15} /></button>
+                </header>
+                <div className="os-window-body">
+                  <div className={`os-preview art-${selectedOsProject.art}`} aria-hidden="true"><b>{selectedOsProject.number}</b></div>
+                  <div className="os-file-copy">
+                    <span>{selectedOsProject.type}</span>
+                    <h3>{selectedOsProject.name}</h3>
+                    <p>{selectedOsProject.summary}</p>
+                    <div>{selectedOsProject.tech.map((tech) => <i key={tech}>{tech}</i>)}</div>
+                    <button type="button" onClick={() => launchFromDesktop(osProject!)}>ENTER PROJECT PORTAL <ArrowUpRight /></button>
+                  </div>
+                </div>
+              </article>
+            )}
+
+            <div className="os-taskbar">
+              <span><Monitor size={17} /> SS.OS</span>
+              <button type="button" onClick={() => { setDesktopOpen(false); document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' }); }}>CONTACT.EXE</button>
+              <time>2026 // ONLINE</time>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={portalProject !== null} onOpenChange={(open) => !open && setPortalProject(null)}>
+        {selectedProject && (
+          <DialogContent className={`project-portal project-portal-${selectedProject.color}`} showCloseButton={false}>
+            <DialogTitle className="sr-only">{selectedProject.name} project</DialogTitle>
+            <DialogDescription className="sr-only">Details and external link for {selectedProject.name}.</DialogDescription>
+            <div className="portal-bar">
+              <span>PROJECT PORTAL // {selectedProject.number}</span>
+              <DialogClose className="portal-close" aria-label="Close project portal"><X /></DialogClose>
+            </div>
+            <div className="portal-body">
+              <div className={`portal-visual portal-visual-${selectedProject.art}`} aria-hidden="true">
+                <span>{selectedProject.number}</span><i /><i /><i />
+              </div>
+              <div className="portal-copy">
+                <p>{selectedProject.type} <span>— {selectedProject.result}</span></p>
+                <h2>{selectedProject.name}</h2>
+                <strong>THE MISSION</strong>
+                <p>{selectedProject.summary} Built as a focused experiment in making complex technology feel immediate, visual, and human.</p>
+                <div className="portal-tech">{selectedProject.tech.map((tech) => <span key={tech}>{tech}</span>)}</div>
+                <a href={selectedProject.link} target="_blank" rel="noreferrer">OPEN LIVE PROJECT <ArrowUpRight /></a>
+              </div>
+            </div>
+            <div className="portal-foot"><span>SHAILESH SETHI // SELECTED WORK</span><span>ESC TO RETURN</span></div>
+          </DialogContent>
+        )}
+      </Dialog>
 
       <footer>
         <a className="brand" href="#top"><span className="brand-mark">SS</span><span>BACK TO TOP</span></a>
