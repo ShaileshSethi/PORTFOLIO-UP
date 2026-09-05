@@ -91,6 +91,8 @@ export default function Home() {
   const [portalLaunch, setPortalLaunch] = useState<number | null>(null);
   const [universeShift, setUniverseShift] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [terminalCommand, setTerminalCommand] = useState('');
+  const [terminalLog, setTerminalLog] = useState('SYSTEM READY // TYPE "HELP"');
   const [gameActive, setGameActive] = useState(false);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -287,6 +289,48 @@ export default function Home() {
     window.setTimeout(() => setCopied(false), 1800);
   }
 
+  function runTerminalCommand(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const command = terminalCommand.trim().toLowerCase();
+    setTerminalCommand('');
+    playTone(460, 0.06);
+
+    if (!command || command === 'help') {
+      setTerminalLog('COMMANDS: WORK · ABOUT · PLAY · CONTACT · PARTY · OPEN 1—4 · CLEAR');
+      return;
+    }
+
+    if (command === 'party') {
+      toggleParty();
+      setTerminalLog(party ? 'RESTORING PRIMARY TIMELINE...' : 'PARTY PROTOCOL ARMED...');
+      return;
+    }
+
+    if (command === 'clear') {
+      setTerminalLog('SYSTEM READY // AWAITING INPUT');
+      return;
+    }
+
+    const destination = ['work', 'about', 'play', 'contact'].find((item) => command === item || command === `cd ${item}`);
+    if (destination) {
+      document.querySelector(`#${destination}`)?.scrollIntoView({ behavior: 'smooth' });
+      setTerminalLog(`NAVIGATING TO /${destination.toUpperCase()}...`);
+      return;
+    }
+
+    const projectMatch = command.match(/^open\s+([1-4])$/);
+    if (projectMatch) {
+      const index = Number(projectMatch[1]) - 1;
+      setOsProject(index);
+      setOsWindowPosition({ x: 0, y: 0 });
+      document.querySelector('#work')?.scrollIntoView({ behavior: 'smooth' });
+      setTerminalLog(`MOUNTING /PROJECTS/${projects[index].name.replaceAll(' ', '_')}...`);
+      return;
+    }
+
+    setTerminalLog(`COMMAND NOT FOUND: ${command.toUpperCase()} // TRY "HELP"`);
+  }
+
   const selectedProject = portalProject === null ? null : projects[portalProject];
   const selectedOsProject = osProject === null ? null : projects[osProject];
 
@@ -313,7 +357,7 @@ export default function Home() {
       )}
       <div className={ready ? 'loading-screen is-gone' : 'loading-screen'} aria-hidden="true">
         <span className="loader-logo">SS</span>
-        <p>LOADING THE FUN STUFF</p>
+        <p>BOOTING PORTFOLIO KERNEL...</p>
         <div><i /></div>
       </div>
       <div className="custom-cursor" aria-hidden="true"><i /></div>
@@ -322,23 +366,23 @@ export default function Home() {
       <header className="topbar">
         <a className="brand" href="#top" aria-label="Shailesh Sethi, home">
           <span className="brand-mark">SS</span>
-          <span className="brand-copy">SHAILESH<br />SETHI</span>
+          <span className="brand-copy">SHAILESH@WEB<br />:~$ ONLINE</span>
         </a>
         <nav aria-label="Main navigation">
-          <a href="#work">WORK</a>
-          <a href="#about">ABOUT</a>
-          <a href="#play">PLAY</a>
-          <a href="#contact">CONTACT</a>
+          <a href="#work">./WORK</a>
+          <a href="#about">./ABOUT</a>
+          <a href="#play">./PLAY</a>
+          <a href="#contact">./CONTACT</a>
         </nav>
         <div className="nav-controls">
           <button className="os-button" type="button" onClick={openDesktop}>
-            <Monitor size={17} /> <span>DESKTOP</span>
+            <Monitor size={17} /> <span>TERMINAL</span>
           </button>
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundOn ? 'Turn sound effects off' : 'Turn sound effects on'} aria-pressed={soundOn}>
             {soundOn ? <Volume2 size={17} /> : <VolumeX size={17} />}
           </button>
           <button className="party-button" type="button" onClick={toggleParty} aria-pressed={party}>
-            <Sparkles aria-hidden="true" size={17} /> {party ? 'EXIT UNIVERSE' : 'PARTY MODE'}
+            <Sparkles aria-hidden="true" size={17} /> {party ? '[ EXIT PARTY ]' : '[ PARTY MODE ]'}
           </button>
         </div>
       </header>
@@ -346,7 +390,7 @@ export default function Home() {
       <section id="top" className="hero" ref={heroRef} onPointerMove={moveGlow}>
         <div className="pointer-glow" aria-hidden="true" />
         <div className="hero-meta">
-          <p><span className="status-dot" /> {party ? 'SYSTEM OVERRIDE ACTIVE' : 'AVAILABLE FOR MISCHIEF'}</p>
+          <p><span className="status-dot" /> {party ? 'ROOT OVERRIDE: ACTIVE' : 'STATUS: AVAILABLE_FOR_MISCHIEF'}</p>
           <p>{party ? 'TIMELINE // 404' : 'BASED IN INDIA'} <span>↗</span></p>
         </div>
 
@@ -375,7 +419,20 @@ export default function Home() {
         >WOW!</button>
 
         <div className="hero-bottom">
-          <p className="hero-intro">I&apos;m Shailesh—an <strong key={roles[role]}>{roles[role]}</strong> turning ambitious ideas into playful, high-performance digital experiences.</p>
+          <form className="hero-terminal" onSubmit={runTerminalCommand}>
+            <label htmlFor="hero-command">guest@shailesh:~$</label>
+            <input
+              id="hero-command"
+              value={terminalCommand}
+              onChange={(event) => setTerminalCommand(event.target.value)}
+              placeholder="type help"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <button type="submit" aria-label="Run terminal command">RUN</button>
+            <p aria-live="polite"><span>&gt;</span> {terminalLog}</p>
+            <small>ACTIVE_ROLE::<strong key={roles[role]}>{roles[role]}</strong></small>
+          </form>
           <a className="round-link" href="#work" aria-label="Jump to selected work"><ArrowDownRight size={34} /></a>
           <div className="drag-note"><MousePointer2 size={18} /> DRAG THE STICKERS<br />MOVE THE LIGHT</div>
         </div>
@@ -398,9 +455,9 @@ export default function Home() {
           onPointerUp={() => setOsDragging(false)}
         >
           <div className="os-menubar">
-            <div className="os-menu-brand"><span>SS</span><strong>PORTFOLIO OS</strong></div>
-            <p>{party ? 'ALT TIMELINE CONNECTED' : 'CREATIVE SYSTEM ONLINE'}</p>
-            <span className="os-live"><i /> LIVE DESKTOP</span>
+            <div className="os-menu-brand"><span>&gt;_</span><strong>PORTFOLIO.TTY</strong></div>
+            <p>{party ? 'ALT_TIMELINE::CONNECTED' : 'SHELL::CREATIVE_SYSTEM_ONLINE'}</p>
+            <span className="os-live"><i /> SSH CONNECTED</span>
           </div>
           <div className="os-workspace">
             <div className="os-wallpaper" aria-hidden="true"><span>BUILD</span><span>PLAY</span><span>REPEAT</span></div>
@@ -432,7 +489,7 @@ export default function Home() {
                   onPointerUp={() => setOsDragging(false)}
                 >
                   <div><i /><i /><i /></div>
-                  <span>{selectedOsProject.name.toLowerCase().replaceAll(' ', '-')}.project</span>
+                  <span>~/projects/{selectedOsProject.name.toLowerCase().replaceAll(' ', '-')}/README.sh</span>
                   <button type="button" aria-label="Close project window" onClick={() => setOsProject(null)}><X size={15} /></button>
                 </header>
                 <div className="os-window-body">
@@ -442,7 +499,7 @@ export default function Home() {
                     <h3>{selectedOsProject.name}</h3>
                     <p>{selectedOsProject.summary}</p>
                     <div>{selectedOsProject.tech.map((tech) => <i key={tech}>{tech}</i>)}</div>
-                    <button type="button" onClick={() => launchFromDesktop(osProject!)}>ENTER PROJECT PORTAL <ArrowUpRight /></button>
+                    <button type="button" onClick={() => launchFromDesktop(osProject!)}>RUN ./PROJECT <ArrowUpRight /></button>
                   </div>
                 </div>
               </article>
