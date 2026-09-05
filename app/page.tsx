@@ -79,6 +79,7 @@ const projects = [
 ];
 
 const achievements = [
+  ['2026', 'OPENAI', 'CAMPUS LEAD'],
   ['2026', 'GOOGLE GEMINI', 'STUDENT AMBASSADOR — SHORTLISTED'],
   ['2026', 'HACK4RELIEF', '3RD PLACE'],
   ['2026', 'JABALI GAME JAM', 'TOP 10 FINALIST'],
