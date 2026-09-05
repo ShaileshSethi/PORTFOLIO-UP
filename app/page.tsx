@@ -23,6 +23,14 @@ import { useEffect, useRef, useState } from 'react';
 
 const roles = ['ENGINEER', 'BUILDER', 'AI EXPLORER', 'CREATOR'];
 
+const asciiMark = String.raw`
+   _____ _____
+  / ___// ___/
+  \__ \ \__ \
+ ___/ /___/ /
+/____//____/
+`;
+
 const projects = [
   {
     number: '01',
@@ -296,7 +304,12 @@ export default function Home() {
     playTone(460, 0.06);
 
     if (!command || command === 'help') {
-      setTerminalLog('COMMANDS: WORK · ABOUT · PLAY · CONTACT · PARTY · OPEN 1—4 · CLEAR');
+      setTerminalLog('COMMANDS: WORK · ABOUT · PLAY · CONTACT · PARTY · ASCII · OPEN 1—4 · CLEAR');
+      return;
+    }
+
+    if (command === 'ascii') {
+      setTerminalLog(`${asciiMark}\nSHAILESH SETHI // CREATIVE DEVELOPER`);
       return;
     }
 
@@ -356,6 +369,7 @@ export default function Home() {
         </div>
       )}
       <div className={ready ? 'loading-screen is-gone' : 'loading-screen'} aria-hidden="true">
+        <pre className="loader-ascii">{asciiMark}</pre>
         <span className="loader-logo">SS</span>
         <p>BOOTING PORTFOLIO KERNEL...</p>
         <div><i /></div>
@@ -398,6 +412,8 @@ export default function Home() {
           <span key={party ? 'accessing' : 'ideas'}>{party ? 'ACCESSING' : 'IDEAS INTO'}</span>
           <span className="reality-line" key={party ? 'alternate' : 'digital'}>{party ? 'ALT' : 'DIGITAL'} <i>{party ? 'UNIVERSE' : 'REALITY'}</i></span>
         </h1>
+
+        <pre className="ascii-sigil" aria-hidden="true">{asciiMark}</pre>
 
         <div className="orbit orbit-one" aria-hidden="true"><span>✦</span></div>
         <div className="orbit orbit-two" aria-hidden="true"><span>☺</span></div>
